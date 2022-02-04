@@ -1,7 +1,7 @@
+use chrono::serde::ts_milliseconds;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use worker::*;
-use chrono::{DateTime, Utc};
-use chrono::serde::ts_milliseconds;
 
 mod utils;
 
@@ -20,12 +20,12 @@ pub struct Dictionary {
     pub words: Vec<String>,
 }
 
-
-#[derive(Serialize, Deserialize )]
+#[derive(Serialize, Deserialize)]
 pub struct Daily {
     pub word: String,
     #[serde(with = "ts_milliseconds")]
     pub date: DateTime<Utc>,
+    pub count: u64,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -78,9 +78,13 @@ pub async fn main(req: Request, env: Env) -> Result<Response> {
                     return Response::error("Language not found", 404);
                 } else {
                     let wordle_namespace = ctx.kv("wordle")?;
-                    let todays_word = wordle_namespace.get(&format!("today_{}",lang)).await?;
+                    let todays_word = wordle_namespace.get(&format!("today_{}", lang)).await?;
                     return Response::from_json::<Daily>(&todays_word.map_or(
-                        Daily{word: String::new(), date: Utc::now()},
+                        Daily {
+                            word: String::new(),
+                            date: Utc::now(),
+                            count: 0,
+                        },
                         |a| {
                             a.as_json::<Daily>()
                                 .expect("can not serialize todays word kv value")
@@ -96,7 +100,8 @@ pub async fn main(req: Request, env: Env) -> Result<Response> {
                     return Response::error("Language not found", 404);
                 } else {
                     let wordle_namespace = ctx.kv("wordle")?;
-                    let previous_words = wordle_namespace.get(&format!("previous_{}",lang)).await?;
+                    let previous_words =
+                        wordle_namespace.get(&format!("previous_{}", lang)).await?;
                     return Response::from_json::<Previous>(&previous_words.map_or(
                         Previous::default(),
                         |a| {
